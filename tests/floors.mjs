@@ -13,7 +13,7 @@ try {
   source=source.replace("'./electrical-map'","'./electrical-map.mjs'").replace("'zod'",JSON.stringify(pathToFileURL(require.resolve('zod')).href));
   await writeFile(join(directory,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
  }
- const {migrateMap,updateFloor,removeBreaker}=await import(pathToFileURL(join(directory,'electrical-map.mjs')));
+	 const {migrateMap,updateFloor,removeBreaker,setBreakerPoles,nextBreakerId,occupiedPanelSlots}=await import(pathToFileURL(join(directory,'electrical-map.mjs')));
  const {parseMap}=await import(pathToFileURL(join(directory,'map-validation.mjs')));
  const legacy={image:'/api/plan?id=abcdef',filename:'my-plan.png',ratio:.5,circuits:[{id:'1',name:'Living room',amps:15,color:'#abcdef'}],nodes:[{id:'a',name:'Outlet',type:'outlet',x:10,y:20,breaker:'1',notes:'Keep this'}],links:[]};
  const migrated=parseMap(legacy);
@@ -29,6 +29,18 @@ try {
 	 const doublePole={...changed,circuits:changed.circuits.map(c=>({...c,amps:50,poles:2}))};
 	 assert.equal(parseMap(doublePole).circuits[0].poles,2);
 	 assert.throws(()=>parseMap({...doublePole,circuits:doublePole.circuits.map(c=>({...c,poles:3}))}));
+	 const partner={id:'3',name:'Partner circuit',amps:20,color:'#123456'};
+	 const pairedHouse={...changed,circuits:[...changed.circuits,partner],floors:changed.floors.map(f=>({...f,nodes:f.nodes.map(n=>({...n,breaker:'3'}))}))};
+	 const normalizedPair=parseMap({...pairedHouse,circuits:pairedHouse.circuits.map(c=>c.id==='1'?{...c,poles:2}:c)});
+	 assert.equal(normalizedPair.circuits.length,1);
+	 assert.ok(normalizedPair.floors.every(f=>f.nodes.every(n=>n.breaker==='1')));
+	 const combined=setBreakerPoles(pairedHouse,'1',2);
+	 assert.deepEqual([...occupiedPanelSlots(combined.circuits)].sort(),['1','3']);
+	 assert.equal(combined.circuits.length,1);
+	 assert.equal(combined.circuits[0].poles,2);
+	 assert.ok(combined.floors.every(f=>f.nodes.every(n=>n.breaker==='1')));
+	 assert.equal(nextBreakerId(combined.circuits),'2');
+	 assert.equal(setBreakerPoles(combined,'1',1).circuits[0].poles,1);
  const rated=updateFloor(changed,'upstairs',d=>({...d,circuits:d.circuits.map(c=>({...c,name:'Shared circuit'}))}));
  assert.equal(rated.circuits[0].name,'Shared circuit');
  assert.equal(updateFloor(changed,'missing',d=>d),changed);

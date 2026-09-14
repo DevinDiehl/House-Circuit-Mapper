@@ -5,6 +5,7 @@ import type {HouseMap,Floor} from './electrical-map';
 const PAGE=[792,612] as const;
 const ink=rgb(.15,.20,.23),muted=rgb(.43,.49,.52),line=rgb(.85,.89,.9),white=rgb(1,1,1);
 const unassigned='#8b95a5';
+const companionSlot=(id:string)=>{const slot=Number(id);return Number.isInteger(slot)&&slot>0?String(slot+2):`${id}-B`};
 const types:Record<string,string>={outlet:'Outlet',gfci:'GFCI outlet',switch:'Switch',light:'Light',fridge:'Refrigerator',microwave:'Microwave',washer:'Washer',dryer:'Dryer',oven:'Oven',dishwasher:'Dishwasher',tv:'Television',fan:'Ceiling fan'};
 function color(hex:string){const h=/^#[a-f0-9]{6}$/i.test(hex)?hex:unassigned;return rgb(parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255)}
 // Normalize multiline labels for table wrapping.
@@ -42,13 +43,13 @@ export async function createElectricalPdf(house:HouseMap,loadImage:(floor:Floor)
   for(const link of floor.links){const a=byId.get(link.a),b=byId.get(link.b);if(a&&b)page.drawLine({start:position(a),end:position(b),thickness:1,color:color(breakerColor(a.breaker)),dashArray:[3,3]})}
   floor.nodes.forEach((n,i)=>{const p=position(n),number=String(i+1),size=number.length>3?6:8,radius=Math.max(8,font.widthOfTextAtSize(number,size)/2+3);page.drawCircle({x:p.x,y:p.y,size:radius,color:white,borderColor:color(breakerColor(n.breaker)),borderWidth:2.5});text(page,number,p.x-bold.widthOfTextAtSize(number,size)/2,p.y-size*.34,size,true)});
   text(page,'BREAKER COLORS',573,top-5,10,true);let y=top-27;
-  const used=new Set(floor.nodes.map(n=>n.breaker));const legends=house.circuits.filter(c=>used.has(c.id)).map(c=>({label:`${c.id} - ${c.name} (${c.amps}A${c.poles===2?', 2-pole':''})`,color:c.color}));if(floor.nodes.some(n=>!house.circuits.some(c=>c.id===n.breaker)))legends.push({label:'Unassigned',color:unassigned});
+  const used=new Set(floor.nodes.map(n=>n.breaker));const legends=house.circuits.filter(c=>used.has(c.id)).map(c=>({label:`${c.poles===2?`${c.id}/${companionSlot(c.id)}`:c.id} - ${c.name} (${c.amps}A${c.poles===2?', 2-pole':''})`,color:c.color}));if(floor.nodes.some(n=>!house.circuits.some(c=>c.id===n.breaker)))legends.push({label:'Unassigned',color:unassigned});
   for(const item of legends){const lines=wrap(item.label,168,font,10);const height=lines.length*14+12;if(y-height<115){text(page,'More colors in breaker chart.',573,y,9,false,muted);break}page.drawCircle({x:578,y:y+2,size:4,color:color(item.color)});drawLines(page,lines,590,y);y-=height}
   if(!legends.length)text(page,'No assigned components.',573,y,9,false,muted);
   drawLines(page,wrap('Numbers identify components in the following chart. Dashed lines show visual connections.',180,font,9),573,99,9);
   table(`${label} - component chart`,'Marker numbers correspond to this floor only. Breakers are shared across floors.',['No.','Component / type','Breaker','Notes'],[44,240,174,270],floor.nodes.map((n,i)=>({color:breakerColor(n.breaker),cells:[String(i+1),`${n.name} / ${types[n.type]||n.type}`,house.circuits.find(c=>c.id===n.breaker)?`${n.breaker} - ${house.circuits.find(c=>c.id===n.breaker)!.name}`:'Unassigned',n.notes||'-']})));
  }
- table('House breaker chart','Colors match component markers and connections on every floor.',['Breaker','Circuit','Rating','Components / floors'],[80,235,80,333],house.circuits.map(c=>({color:c.color,cells:[c.id,c.name,`${c.amps}A / ${c.poles===2?'2-pole':'1-pole'}`,house.floors.map(f=>({f,count:f.nodes.filter(n=>n.breaker===c.id).length})).filter(v=>v.count).map(({f,count})=>`${f.name||'Unnamed floor'}: ${count}`).join('; ')||'No assigned components']})));
+ table('House breaker chart','Colors match component markers and connections on every floor.',['Breaker','Circuit','Rating','Components / floors'],[80,235,80,333],house.circuits.map(c=>({color:c.color,cells:[c.poles===2?`${c.id} / ${companionSlot(c.id)}`:c.id,c.name,`${c.amps}A / ${c.poles===2?'2-pole':'1-pole'}`,house.floors.map(f=>({f,count:f.nodes.filter(n=>n.breaker===c.id).length})).filter(v=>v.count).map(({f,count})=>`${f.name||'Unnamed floor'}: ${count}`).join('; ')||'No assigned components']})));
  const pages=doc.getPages();pages.forEach((page,i)=>{text(page,'Circuit | Home electrical map',32,28,8,false,muted);text(page,`${i+1} / ${pages.length}`,725,28,8,false,muted)});
  return doc.save();
 }

@@ -195,14 +195,16 @@ body {
 @media(max-width:850px){.componentgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.componentgrid button{min-height:54px}.appliance-start,.appliance-start+button{margin-top:0}}
 
 /* Double-pole breakers occupy two vertical panel spaces with linked handles. */
-.breaker-grid{grid-auto-flow:row dense}
+.breaker-grid{grid-auto-flow:row dense;grid-auto-rows:82px}
 .breaker-toggle i+i{display:none}
 .breaker-switch.double-pole{grid-row:span 2;height:169px;grid-template-rows:78px minmax(25px,auto) 18px}
 .breaker-switch.double-pole:after{content:"";position:absolute;left:9px;right:7px;top:50%;border-top:2px solid #7c878b;pointer-events:none}
 .double-pole .breaker-toggle{height:76px;display:flex;flex-direction:column;justify-content:space-between}
 .double-pole .breaker-toggle i{height:27px;transform:none}
 .double-pole .breaker-toggle i+i{display:block}
+.double-pole .breaker-number{line-height:1.5}
 .pole-badge{grid-column:1/-1;align-self:end;text-align:center;font:700 9px/1 Arial;letter-spacing:.5px;color:#536168}
 .breaker-form label.breaker-poles{grid-column:1/-1;margin-bottom:-8px}
 .breaker-form .breaker-poles[data-slot="select-trigger"]{grid-column:1/-1}
+.pole-help{grid-column:1/-1;margin:-3px 0 0;color:#66767c;font-size:12px;line-height:1.45}
 @media(max-width:1150px) and (min-width:851px){.breaker-switch.double-pole{height:168px}}

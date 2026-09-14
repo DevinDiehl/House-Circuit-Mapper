@@ -17,3 +17,21 @@ export function removeBreaker(house:HouseMap,id:string):HouseMap {
  if(!house.circuits.some(c=>c.id===id))return house;
  return {...house,circuits:house.circuits.filter(c=>c.id!==id),floors:house.floors.map(f=>({...f,nodes:f.nodes.map(n=>n.breaker===id?{...n,breaker:''}:n)}))};
 }
+export function companionSlot(id:string):string {
+ const slot=Number(id);return Number.isInteger(slot)&&slot>0?String(slot+2):`${id}-B`;
+}
+export function occupiedPanelSlots(circuits:Circuit[]):Set<string> {
+ const slots=new Set<string>();for(const circuit of circuits){slots.add(circuit.id);if(circuit.poles===2)slots.add(companionSlot(circuit.id))}return slots;
+}
+export function nextBreakerId(circuits:Circuit[]):string {
+ const occupied=occupiedPanelSlots(circuits);let slot=1;while(occupied.has(String(slot)))slot++;return String(slot);
+}
+export function setBreakerPoles(house:HouseMap,id:string,poles:1|2):HouseMap {
+ if(!house.circuits.some(c=>c.id===id))return house;
+ if(poles===1)return {...house,circuits:house.circuits.map(c=>c.id===id?{...c,poles}:c)};
+ const companion=companionSlot(id);
+ return {...house,circuits:house.circuits.filter(c=>c.id!==companion).map(c=>c.id===id?{...c,poles}:c),floors:house.floors.map(f=>({...f,nodes:f.nodes.map(n=>n.breaker===companion?{...n,breaker:id}:n)}))};
+}
+export function normalizePanelSlots(house:HouseMap):HouseMap {
+ return house.circuits.filter(c=>c.poles===2).reduce((normalized,circuit)=>setBreakerPoles(normalized,circuit.id,2),house);
+}

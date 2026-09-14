@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Zap,Plug,Lightbulb,ToggleLeft,Refrigerator,Microwave,WashingMachine,Fan,Tv,Flame,MousePointer2,Link2,Upload,Download,Plus,Minus,Maximize,Trash2,Check,Layers,ChevronRight,PanelTop,Undo2} from 'lucide-react';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from '@/components/ui/dialog';
-import {migrateMap,updateFloor,removeBreaker,type MapNode as Node,type MapData,type HouseMap} from '@/lib/electrical-map';
+import {companionSlot,migrateMap,nextBreakerId,updateFloor,removeBreaker,setBreakerPoles,type MapNode as Node,type MapData,type HouseMap} from '@/lib/electrical-map';
 const library=[['outlet','Outlet',Plug],['gfci','GFCI outlet',Plug],['switch','Switch',ToggleLeft],['light','Light',Lightbulb],['fridge','Refrigerator',Refrigerator],['microwave','Microwave',Microwave],['washer','Washer',WashingMachine],['dryer','Dryer',WashingMachine],['oven','Oven',Flame],['dishwasher','Dishwasher',PanelTop],['tv','Television',Tv],['fan','Ceiling fan',Fan]] as const;
 const initial:MapData={image:null,filename:'Example floor plan',circuits:[{id:'1',name:'Living room',amps:15,color:'#ea8050'},{id:'2',name:'Kitchen outlets',amps:20,color:'#5188ce'},{id:'3',name:'Bedroom & lighting',amps:15,color:'#9a79c5'},{id:'4',name:'Kitchen appliances',amps:20,color:'#58a58d'}],nodes:[{id:'a',type:'outlet',name:'Living room outlet',x:18,y:23,breaker:'1',notes:''},{id:'b',type:'outlet',name:'Sofa outlet',x:18,y:66,breaker:'1',notes:''},{id:'c',type:'tv',name:'Living room TV',x:39,y:23,breaker:'1',notes:''},{id:'d',type:'gfci',name:'Kitchen counter',x:64,y:23,breaker:'2',notes:''},{id:'e',type:'fridge',name:'Refrigerator',x:81,y:23,breaker:'4',notes:''},{id:'f',type:'light',name:'Bedroom light',x:73,y:66,breaker:'3',notes:''}],links:[{id:'ab',a:'a',b:'b'},{id:'ac',a:'a',b:'c'}]};
 export default function Home(){const [exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');const [house,setHouse]=useState<HouseMap>(()=>migrateMap(initial)),[activeFloor,setActiveFloor]=useState('main-floor'),[selected,setSelected]=useState('a'),[tool,setTool]=useState('select'),[pending,setPending]=useState<string|null>(null),[filter,setFilter]=useState('all'),[editingBreaker,setEditingBreaker]=useState<string|null>(null),[editingComponent,setEditingComponent]=useState<string|null>(null),[zoom,setZoom]=useState(1),[status,setStatus]=useState('Loading saved map…'),[ready,setReady]=useState(false),[error,setError]=useState(''),[history,setHistory]=useState<HouseMap[]>([]),[showLinks,setShowLinks]=useState(true);const [viewportSize,setViewportSize]=useState({width:0,height:0});const viewport=useRef<HTMLDivElement>(null);const saveQueue=useRef(Promise.resolve());const board=useRef<HTMLDivElement>(null),file=useRef<HTMLInputElement>(null),drag=useRef<string|null>(null),moved=useRef(false),latest=useRef(house);
@@ -44,10 +44,11 @@ return <main><header className="topbar"><div className="brand"><span className="
     <div className="panel-main"><span>MAIN</span><strong>200A</strong></div>
     <div className="panel-bus" aria-hidden="true" />
     <div className="breaker-grid">
-      {data.circuits.map((c,index)=>{
+      {data.circuits.map(c=>{
         const componentCount=house.floors.reduce((count,f)=>count+f.nodes.filter(n=>n.breaker===c.id).length,0);
-        return <button key={c.id} className={`breaker-switch ${c.poles===2?'double-pole':''} ${filter===c.id?'active':''} ${index%2?'right-switch':'left-switch'}`} style={{'--breaker-color':c.color} as React.CSSProperties} aria-label={`Breaker ${c.id}, ${c.name}, ${c.amps} amps, ${c.poles===2?'two-pole, occupies two panel spots':'single-pole'}, ${componentCount} components`} onClick={()=>{setFilter(c.id);setEditingBreaker(c.id)}}>
-          <span className="breaker-number">{c.id.padStart(2,'0')}</span>
+        const slot=Number(c.id),position=Number.isInteger(slot)&&slot>0?{gridColumn:slot%2?1:2,gridRow:`${Math.floor((slot-1)/2)+1} / span ${c.poles===2?2:1}`}:{ };
+        return <button key={c.id} className={`breaker-switch ${c.poles===2?'double-pole':''} ${filter===c.id?'active':''} ${Number(c.id)%2===0?'right-switch':'left-switch'}`} style={{'--breaker-color':c.color,...position} as React.CSSProperties} aria-label={`Breaker ${c.id}, ${c.name}, ${c.amps} amps, ${c.poles===2?`two-pole, occupies slots ${c.id} and ${companionSlot(c.id)}`:'single-pole'}, ${componentCount} components`} onClick={()=>{setFilter(c.id);setEditingBreaker(c.id)}}>
+          <span className="breaker-number">{c.poles===2?`${c.id.padStart(2,'0')} / ${companionSlot(c.id).padStart(2,'0')}`:c.id.padStart(2,'0')}</span>
           <span className="breaker-toggle" aria-hidden="true"><i /><i /></span>
           <strong className="breaker-amps">{c.amps}A</strong>
           <span className="breaker-name" title={c.name}>{c.name}</span>
@@ -58,7 +59,7 @@ return <main><header className="topbar"><div className="brand"><span className="
     {!data.circuits.length&&<div className="empty-panel">No breakers yet.</div>}
     <div className="panel-footer"><span>HOUSE PANEL</span><span>{house.floors.reduce((count,f)=>count+f.nodes.length,0)} mapped components</span></div>
   </div>
-  <button className="addbreaker panel-add" onClick={()=>{const id=String(Math.max(0,...data.circuits.map(c=>Number(c.id)))+1);edit(d=>({...d,circuits:[...d.circuits,{id,name:`Circuit ${id}`,amps:20,color:['#d3a43d','#c86f92','#5aa6b0'][d.circuits.length%3],poles:1}]}));setFilter(id);setEditingBreaker(id)}}><Plus size={16}/>Add breaker</button>
+  <button className="addbreaker panel-add" onClick={()=>{const id=nextBreakerId(data.circuits);edit(d=>({...d,circuits:[...d.circuits,{id,name:`Circuit ${id}`,amps:20,color:['#d3a43d','#c86f92','#5aa6b0'][d.circuits.length%3],poles:1}]}));setFilter(id);setEditingBreaker(id)}}><Plus size={16}/>Add breaker</button>
 <div className="unassigned">{data.nodes.filter(n=>!n.breaker).length} components without a breaker</div></aside></div>
 <Dialog open={Boolean(breaker)} onOpenChange={open=>{if(!open)setEditingBreaker(null)}}>
   <DialogContent className="breaker-dialog">
@@ -71,7 +72,8 @@ return <main><header className="topbar"><div className="brand"><span className="
         <label>Circuit name<input autoFocus maxLength={500} value={breaker.name} onChange={e=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,name:e.target.value}:c)}))}/></label>
         <label>Breaker rating (A)<input type="number" min="1" max="200" value={breaker.amps} onChange={e=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,amps:Math.max(1,Math.min(200,Number(e.target.value)||1))}:c)}))}/></label>
         <label className="breaker-poles">Panel spaces</label>
-        <Select value={String(breaker.poles||1)} onValueChange={value=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,poles:value==='2'?2:1}:c)}))}><SelectTrigger className="breaker-poles w-full"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="1">Single-pole · 1 space</SelectItem><SelectItem value="2">Double-pole · 2 spaces</SelectItem></SelectContent></Select>
+        <Select value={String(breaker.poles||1)} onValueChange={value=>{setHistory(h=>[...h.slice(-29),latest.current]);setHouse(h=>setBreakerPoles(h,breaker.id,value==='2'?2:1))}}><SelectTrigger className="breaker-poles w-full"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="1">Single-pole · slot {breaker.id}</SelectItem><SelectItem value="2">Double-pole · slots {breaker.id} + {companionSlot(breaker.id)}</SelectItem></SelectContent></Select>
+        {breaker.poles===2&&<p className="pole-help">This breaker occupies circuit positions {breaker.id} and {companionSlot(breaker.id)}. Components previously assigned to circuit {companionSlot(breaker.id)} are combined into this circuit.</p>}
         <div className="breaker-assignment-summary">
           <span>Assigned components</span><strong>{house.floors.reduce((count,f)=>count+f.nodes.filter(n=>n.breaker===breaker.id).length,0)}</strong>
           {house.floors.map(f=>{const count=f.nodes.filter(n=>n.breaker===breaker.id).length;return count?<small key={f.id}>{f.name||'Unnamed floor'}: {count}</small>:null})}
