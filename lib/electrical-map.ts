@@ -1,5 +1,5 @@
 export type MapNode={id:string;type:string;name:string;x:number;y:number;breaker:string;notes:string};
-export type Circuit={id:string;name:string;amps:number;color:string};
+export type Circuit={id:string;name:string;amps:number;color:string;poles?:1|2};
 export type Floor={id:string;name:string;nodes:MapNode[];links:{id:string;a:string;b:string}[];image:string|null;filename:string;ratio?:number;example?:boolean};
 export type MapData=Omit<Floor,'id'|'name'>&{circuits:Circuit[]};
 export type HouseMap={version:2;floors:Floor[];circuits:Circuit[]};

@@ -39,36 +39,39 @@ return <main><header className="topbar"><div className="brand"><span className="
 </div></div></div></div><div className="canvasbottom"><span>{tool==='connect'?(pending?'Select the second component to link.':'Select two components to create a link.'):tool==='select'?'Drag to move · Select to edit':`Click the plan to place a ${library.find(l=>l[0]===tool)?.[1].toLowerCase()}`}</span><div><button title="Zoom out" onClick={()=>setZoom(z=>Math.max(.6,z-.2))}><Minus size={16}/></button><span>{Math.round(zoom*100)}%</span><button title="Zoom in" onClick={()=>setZoom(z=>Math.min(2.4,z+.2))}><Plus size={16}/></button><button title="Fit plan" onClick={fitPlan}><Maximize size={16}/></button></div></div><div className="legend">{data.circuits.map(c=><button key={c.id} onClick={()=>setFilter(filter===c.id?'all':c.id)} style={{opacity:filter==='all'||filter===c.id?1:.4}}><b style={{background:c.color}}/> {c.name}</button>)}</div></section>
 <aside className="details">
   <div className="sectionhead">BREAKER BOX <Zap size={15}/></div>
-  <div className="panel-heading"><div><h2>Main panel <span>{data.circuits.length}</span></h2><p>Select a switch to view or edit its circuit.</p></div><span className="panel-voltage">120/240V</span></div>
+  <div className="panel-heading"><div><h2>Main panel <span>{data.circuits.reduce((spaces,c)=>spaces+(c.poles===2?2:1),0)} spaces</span></h2><p>Select a switch to view or edit its circuit.</p></div><span className="panel-voltage">120/240V</span></div>
   <div className="breaker-box" aria-label="House breaker box">
     <div className="panel-main"><span>MAIN</span><strong>200A</strong></div>
     <div className="panel-bus" aria-hidden="true" />
     <div className="breaker-grid">
       {data.circuits.map((c,index)=>{
         const componentCount=house.floors.reduce((count,f)=>count+f.nodes.filter(n=>n.breaker===c.id).length,0);
-        return <button key={c.id} className={`breaker-switch ${filter===c.id?'active':''} ${index%2?'right-switch':'left-switch'}`} style={{'--breaker-color':c.color} as React.CSSProperties} aria-label={`Breaker ${c.id}, ${c.name}, ${c.amps} amps, ${componentCount} components`} onClick={()=>{setFilter(c.id);setEditingBreaker(c.id)}}>
+        return <button key={c.id} className={`breaker-switch ${c.poles===2?'double-pole':''} ${filter===c.id?'active':''} ${index%2?'right-switch':'left-switch'}`} style={{'--breaker-color':c.color} as React.CSSProperties} aria-label={`Breaker ${c.id}, ${c.name}, ${c.amps} amps, ${c.poles===2?'two-pole, occupies two panel spots':'single-pole'}, ${componentCount} components`} onClick={()=>{setFilter(c.id);setEditingBreaker(c.id)}}>
           <span className="breaker-number">{c.id.padStart(2,'0')}</span>
-          <span className="breaker-toggle" aria-hidden="true"><i /></span>
+          <span className="breaker-toggle" aria-hidden="true"><i /><i /></span>
           <strong className="breaker-amps">{c.amps}A</strong>
           <span className="breaker-name" title={c.name}>{c.name}</span>
+          {c.poles===2&&<span className="pole-badge">2-POLE · 2 SPACES</span>}
         </button>
       })}
     </div>
     {!data.circuits.length&&<div className="empty-panel">No breakers yet.</div>}
     <div className="panel-footer"><span>HOUSE PANEL</span><span>{house.floors.reduce((count,f)=>count+f.nodes.length,0)} mapped components</span></div>
   </div>
-  <button className="addbreaker panel-add" onClick={()=>{const id=String(Math.max(0,...data.circuits.map(c=>Number(c.id)))+1);edit(d=>({...d,circuits:[...d.circuits,{id,name:`Circuit ${id}`,amps:20,color:['#d3a43d','#c86f92','#5aa6b0'][d.circuits.length%3]}]}));setFilter(id);setEditingBreaker(id)}}><Plus size={16}/>Add breaker</button>
+  <button className="addbreaker panel-add" onClick={()=>{const id=String(Math.max(0,...data.circuits.map(c=>Number(c.id)))+1);edit(d=>({...d,circuits:[...d.circuits,{id,name:`Circuit ${id}`,amps:20,color:['#d3a43d','#c86f92','#5aa6b0'][d.circuits.length%3],poles:1}]}));setFilter(id);setEditingBreaker(id)}}><Plus size={16}/>Add breaker</button>
 <div className="unassigned">{data.nodes.filter(n=>!n.breaker).length} components without a breaker</div></aside></div>
 <Dialog open={Boolean(breaker)} onOpenChange={open=>{if(!open)setEditingBreaker(null)}}>
   <DialogContent className="breaker-dialog">
     {breaker&&<>
       <DialogHeader>
         <div className="dialog-breaker-id" style={{background:breaker.color}}>{breaker.id.padStart(2,'0')}</div>
-        <div><DialogTitle>Breaker {breaker.id}</DialogTitle><DialogDescription>Edit the circuit label and rating. Changes apply to every floor.</DialogDescription></div>
+        <div><DialogTitle>Breaker {breaker.id}</DialogTitle><DialogDescription>Edit the circuit label, rating, and panel spaces. Use a double-pole breaker for a circuit that occupies two spots.</DialogDescription></div>
       </DialogHeader>
       <div className="breaker-form">
         <label>Circuit name<input autoFocus maxLength={500} value={breaker.name} onChange={e=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,name:e.target.value}:c)}))}/></label>
         <label>Breaker rating (A)<input type="number" min="1" max="200" value={breaker.amps} onChange={e=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,amps:Math.max(1,Math.min(200,Number(e.target.value)||1))}:c)}))}/></label>
+        <label className="breaker-poles">Panel spaces</label>
+        <Select value={String(breaker.poles||1)} onValueChange={value=>edit(d=>({...d,circuits:d.circuits.map(c=>c.id===breaker.id?{...c,poles:value==='2'?2:1}:c)}))}><SelectTrigger className="breaker-poles w-full"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="1">Single-pole · 1 space</SelectItem><SelectItem value="2">Double-pole · 2 spaces</SelectItem></SelectContent></Select>
         <div className="breaker-assignment-summary">
           <span>Assigned components</span><strong>{house.floors.reduce((count,f)=>count+f.nodes.filter(n=>n.breaker===breaker.id).length,0)}</strong>
           {house.floors.map(f=>{const count=f.nodes.filter(n=>n.breaker===breaker.id).length;return count?<small key={f.id}>{f.name||'Unnamed floor'}: {count}</small>:null})}

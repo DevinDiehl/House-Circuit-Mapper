@@ -25,7 +25,10 @@ try {
  const changed=updateFloor(house,'upstairs',d=>({...d,image:'/api/plan?id=123456',ratio:2,nodes:[{...legacy.nodes[0],id:'b'}]}));
  assert.deepEqual(changed.floors[0],house.floors[0]);
  assert.equal(changed.floors[1].nodes[0].id,'b');
- assert.deepEqual(parseMap(JSON.parse(JSON.stringify(changed))),changed);
+	 assert.deepEqual(parseMap(JSON.parse(JSON.stringify(changed))),changed);
+	 const doublePole={...changed,circuits:changed.circuits.map(c=>({...c,amps:50,poles:2}))};
+	 assert.equal(parseMap(doublePole).circuits[0].poles,2);
+	 assert.throws(()=>parseMap({...doublePole,circuits:doublePole.circuits.map(c=>({...c,poles:3}))}));
  const rated=updateFloor(changed,'upstairs',d=>({...d,circuits:d.circuits.map(c=>({...c,name:'Shared circuit'}))}));
  assert.equal(rated.circuits[0].name,'Shared circuit');
  assert.equal(updateFloor(changed,'missing',d=>d),changed);
