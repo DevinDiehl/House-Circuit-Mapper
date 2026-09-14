@@ -158,6 +158,20 @@ body {
 .breaker-name{grid-column:1/-1;align-self:stretch;border-top:1px solid #8d979b;padding:7px 5px 3px 7px;font-size:11px;font-weight:600;line-height:1.25;white-space:normal;overflow-wrap:anywhere;overflow:hidden;color:#354349}
 @media(max-width:1150px) and (min-width:851px){.breaker-switch{height:82px;grid-template-rows:38px minmax(25px,auto)}.breaker-name{font-size:10px;padding-left:5px}}
 
+/* Component configuration dialog */
+.component-dialog{max-width:500px;border-color:#d7dfe0;border-radius:12px;background:#f9fbfb;box-shadow:0 25px 80px #18282f4d}
+.component-dialog [data-slot="dialog-header"]{display:grid;grid-template-columns:50px 1fr;align-items:center;gap:13px;text-align:left}
+.dialog-component-icon{width:48px;height:48px;border:1px solid currentColor;border-radius:9px;background:#fff;display:grid;place-items:center}
+.component-dialog [data-slot="dialog-title"]{color:#26343b;font-size:19px}
+.component-dialog [data-slot="dialog-description"]{margin-top:5px;line-height:1.5}
+.component-form{margin-top:3px}
+.component-form .notes{display:block;margin-top:18px}
+.component-links{margin-top:20px;border-top:1px solid #e0e6e7;padding-top:2px}
+.component-links .sectionlabel{margin-top:15px}
+.component-dialog [data-slot="dialog-footer"]{justify-content:space-between;align-items:center;margin-top:4px}
+.remove-component{color:#a04d45;padding:9px 0;font-size:13px}
+@media(max-width:560px){.component-dialog{max-width:calc(100% - 20px);padding:20px}.component-dialog [data-slot="dialog-footer"]{align-items:stretch}.component-dialog .dialog-done{width:100%}}
+
 /* Keep the schematic workspace visible while each side panel scrolls on its own. */
 @media(min-width:851px){
   html,body{height:100%;overflow:hidden}
