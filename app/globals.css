@@ -184,3 +184,12 @@ body {
   .library::-webkit-scrollbar,.details::-webkit-scrollbar{width:9px}
   .library::-webkit-scrollbar-thumb,.details::-webkit-scrollbar-thumb{background:#c8d2d1;border:2px solid #fff;border-radius:999px}
 }
+
+/* Compact the component picker so more choices fit in the workspace panel. */
+.componentgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.componentgrid button{min-height:58px;padding:7px 3px;gap:5px}
+.componentgrid button svg{width:18px;height:18px}
+.componentgrid button span{font-size:10px;line-height:1.15;text-align:center;overflow-wrap:anywhere}
+.appliance-start,.appliance-start+button{margin-top:6px}
+@media(max-width:1150px) and (min-width:851px){.componentgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.componentgrid button{min-height:56px}}
+@media(max-width:850px){.componentgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.componentgrid button{min-height:54px}.appliance-start,.appliance-start+button{margin-top:0}}
