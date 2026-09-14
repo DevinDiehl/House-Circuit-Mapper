@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {pathToFileURL} from 'node:url';
+import {createRequire} from 'node:module';
+import ts from 'typescript';
+import sharp from 'sharp';
+import {PDFDocument} from 'pdf-lib';
+const require=createRequire(import.meta.url),temp=await mkdtemp(join(tmpdir(),'circuit-pdf-'));
+try{
+ let source=await readFile(new URL('../lib/export-pdf.ts',import.meta.url),'utf8');
+ source=source.replace("'@pdf-lib/fontkit'",JSON.stringify(pathToFileURL(require.resolve('@pdf-lib/fontkit')).href));
+ source=source.replace("'pdf-lib'",JSON.stringify(pathToFileURL(require.resolve('pdf-lib')).href));
+ await writeFile(join(temp,'export.mjs'),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+ const {createElectricalPdf}=await import(pathToFileURL(join(temp,'export.mjs')));
+ const fonts={regular:await readFile(new URL('../public/fonts/DejaVuSans.ttf',import.meta.url)),bold:await readFile(new URL('../public/fonts/DejaVuSans-Bold.ttf',import.meta.url))};
+ const image=await sharp(await readFile(new URL('../public/example-floor-plan.svg',import.meta.url))).png().toBuffer();
+ const portrait=await sharp(image).extend({top:425,bottom:425,left:0,right:0,background:'white'}).png().toBuffer();
+ const circuits=Array.from({length:18},(_,i)=>({id:String(i+1),name:i===1?'Kitchen countertop and utility appliance outlets':'Circuit '+(i+1),amps:20,color:['#ea8050','#5188ce','#9a79c5','#58a58d'][i%4]}));
+ const makeFloor=(id,count)=>({id,name:id==='main'?'Main floor':'Second floor - bedroom and utility circuits',image:'/api/plan?id=abcdef',filename:'floor-schematic.png',nodes:Array.from({length:count},(_,i)=>({id:id+i,type:['outlet','fridge','light','washer'][i%4],name:i===1?'Refrigerator and adjacent pantry outlet':'Component '+(i+1),x:5+(i%8)*12,y:8+Math.floor(i/8)*13,breaker:i===0?'':String(i%18+1),notes:i===2?'A long note that must wrap without overlapping adjacent columns. '.repeat(12):''})),links:[{id:'link',a:id+'0',b:id+'1'}]});
+ const house={version:2,circuits,floors:[makeFloor('main',12),makeFloor('upstairs',40)]};
+ const before=JSON.stringify(house),bytes=await createElectricalPdf(house,async(floor)=>({bytes:floor.id==='main'?image:portrait,format:'png'}),fonts);
+ assert.equal(JSON.stringify(house),before);
+ const parsed=await PDFDocument.load(bytes);assert.ok(parsed.getPageCount()>=6);assert.equal(parsed.getTitle(),'Home electrical map');
+ for(const page of parsed.getPages())assert.deepEqual(page.getSize(),{width:792,height:612});
+ await writeFile('/tmp/circuit-pdf-export.pdf',bytes);
+ await assert.rejects(()=>createElectricalPdf(house,async()=>{throw new Error('Missing schematic')},fonts),/Missing schematic/);
+ const empty=await createElectricalPdf({version:2,circuits:[],floors:[{id:'blank',name:'Basement',image:null,filename:'No schematic uploaded',nodes:[],links:[]}]},async()=>null,fonts);
+ assert.equal((await PDFDocument.load(empty)).getPageCount(),3);
+ console.log(`PDF export passed: ${parsed.getPageCount()} pages, all floors, pagination, empty state, image failure, and unchanged source data.`);
+}finally{await rm(temp,{recursive:true,force:true})}
