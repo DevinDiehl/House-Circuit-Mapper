@@ -206,5 +206,7 @@ body {
 .pole-badge{grid-column:1/-1;align-self:end;text-align:center;font:700 9px/1 Arial;letter-spacing:.5px;color:#536168}
 .breaker-form label.breaker-poles{grid-column:1/-1;margin-bottom:-8px}
 .breaker-form .breaker-poles[data-slot="select-trigger"]{grid-column:1/-1}
+.breaker-form label.breaker-direction{grid-column:1/-1;margin:2px 0 -8px}
+.breaker-form .breaker-direction[data-slot="select-trigger"]{grid-column:1/-1}
 .pole-help{grid-column:1/-1;margin:-3px 0 0;color:#66767c;font-size:12px;line-height:1.45}
 @media(max-width:1150px) and (min-width:851px){.breaker-switch.double-pole{height:168px}}

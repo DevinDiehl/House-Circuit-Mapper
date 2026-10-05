@@ -41,6 +41,13 @@ try {
 	 assert.ok(combined.floors.every(f=>f.nodes.every(n=>n.breaker==='1')));
 	 assert.equal(nextBreakerId(combined.circuits),'2');
 	 assert.equal(setBreakerPoles(combined,'1',1).circuits[0].poles,1);
+	 const upward={version:2,circuits:[{id:'16',name:'Upper',amps:20,color:'#abcdef'},{id:'18',name:'Service',amps:50,color:'#123456'}],floors:[{id:'main',name:'Main',image:null,filename:'None',nodes:[{...legacy.nodes[0],breaker:'16'}],links:[]}]};
+	 const combinedUp=setBreakerPoles(upward,'18',2,'up');
+	 assert.deepEqual([...occupiedPanelSlots(combinedUp.circuits)].sort(),['16','18']);
+	 assert.deepEqual(combinedUp.circuits.map(c=>c.id),['18']);
+	 assert.equal(combinedUp.circuits[0].poleDirection,'up');
+	 assert.equal(combinedUp.floors[0].nodes[0].breaker,'18');
+	 assert.throws(()=>parseMap({...combinedUp,circuits:[{...combinedUp.circuits[0],id:'2'}]}));
  const rated=updateFloor(changed,'upstairs',d=>({...d,circuits:d.circuits.map(c=>({...c,name:'Shared circuit'}))}));
  assert.equal(rated.circuits[0].name,'Shared circuit');
  assert.equal(updateFloor(changed,'missing',d=>d),changed);
